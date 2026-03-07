@@ -4,7 +4,8 @@ const {
     getTender,
     createTender,
     updateTender,
-    deleteTender
+    deleteTender,
+    getNearbyTenders
 } = require('../controllers/tenders');
 
 const router = express.Router();
@@ -15,6 +16,10 @@ const bidRouter = require('./bids');
 
 // Re-route into other resource routers
 router.use('/:tenderId/bids', bidRouter);
+
+router
+    .route('/nearby')
+    .get(getNearbyTenders);
 
 router
     .route('/')

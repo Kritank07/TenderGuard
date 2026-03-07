@@ -1,0 +1,38 @@
+# Goal Description
+Implement a geo-based notification system that triggers when a user passes by or is near an infrastructure project (Tender). The notification will ask the user for reviews or complaints about the infrastructure.
+
+## Proposed Changes
+
+### Backend API
+#### [MODIFY] [controllers/tenders.js](file:///f:/Antigravity/Acehack/controllers/tenders.js)
+- Add a new controller function `getNearbyTenders` that accepts `lat`, `lng`, and `radius` (default 500 meters) from the query string.
+- Will query all active/awarded tenders and calculate the distance using the Haversine formula to return any tenders within the radius.
+
+#### [MODIFY] [routes/tenders.js](file:///f:/Antigravity/Acehack/routes/tenders.js)
+- Add a new `GET` route `/nearby` mapped to `getNearbyTenders`. This route will be placed before `/:id` to avoid route conflicts.
+
+---
+
+### Frontend Tracking and UI
+#### [NEW] [public/js/geo-notify.js](file:///f:/Antigravity/Acehack/public/js/geo-notify.js)
+- Create a new script to handle geolocation tracking.
+- Will use `navigator.geolocation.watchPosition` to periodically get the user's current location.
+- Will call the `/api/v1/tenders/nearby` endpoint with the location coordinates.
+- If a nearby tender is found, it will inject a modern, glassmorphism-styled toast notification on the screen: "You are near [Tender Title]. Any complaints or feedback about this infrastructure?".
+- Action buttons will link directly to `/public/complaints.html?tenderId=[id]`.
+- Will use `sessionStorage` or local memory to prevent spamming notifications for the same tender multiple times.
+
+#### [MODIFY] [public/index.html](file:///f:/Antigravity/Acehack/public/index.html)
+- Include the new `<script src="/js/geo-notify.js"></script>` near the end of the `<body>` so it runs for any visitor landing on the page.
+
+#### [MODIFY] [public/public/portal.html](file:///f:/Antigravity/Acehack/public/public/portal.html)
+- Include the new `<script src="/js/geo-notify.js"></script>` so the tracking continues when users are looking at the transparency map.
+
+## Verification Plan
+### Manual Verification
+1. Start the server (`npm run dev` or `node server.js`).
+2. Open `http://localhost:[port]/` (or [/public/portal.html](file:///f:/Antigravity/Acehack/public/public/portal.html)) in a browser.
+3. Allow Location permissions when prompted by the browser.
+4. Use the browser's developer tools sensor emulation to mock a GPS location near one of the existing tenders.
+5. Verify that the geo-notification toast pops up.
+6. Click the action button on the notification and verify it successfully redirects to the complaint submission page with the correct tender ID prefilled in the URL.
