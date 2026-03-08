@@ -1,8 +1,4 @@
 const API_URL = '/api';
-const app = require('../server');
-
-module.exports = app;
-
 const api = {
     // Auth
     login: async (email, password) => {
