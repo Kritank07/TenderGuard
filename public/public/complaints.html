@@ -11,18 +11,6 @@
 </head>
 
 <body class="auth-container">
-    <nav class="navbar" style="background-color: rgba(10, 10, 10, 0.8);">
-        <div class="container" style="max-width: 100%; padding: 0 2rem;">
-            <a href="/public/portal.html" class="logo" style="color: var(--text-primary);">
-                <i class="fa-solid fa-shield-halved"></i> TenderGuard <span
-                    style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500; margin-left: 0.25rem;">Complaints</span>
-            </a>
-            <div class="nav-links">
-                <a href="/public/portal.html" style="color: var(--text-secondary);">Back to Map</a>
-            </div>
-        </div>
-    </nav>
-
     <div class="container py-12" style="max-width: 600px;">
         <h2 class="mb-2 text-center">Report Infrastructure Issue</h2>
         <p class="text-muted text-center mb-8">See a pothole, delayed construction, or substandard materials? Upload a
@@ -44,11 +32,19 @@
                 <label class="form-label">Issue Category</label>
                 <select id="category" class="form-control" required>
                     <option value="">-- Select Category --</option>
-                    <option value="road damage">Road Damage</option>
-                    <option value="broken railing">Broken Railing</option>
-                    <option value="structural crack">Structural Crack</option>
-                    <option value="safety hazard">Safety Hazard</option>
-                    <option value="poor construction">Poor Construction</option>
+                    <hr>
+                    <optgroup label="Infrastructure Issues">
+                        <option value="road damage">Road Damage</option>
+                        <option value="broken railing">Broken Railing</option>
+                        <option value="structural crack">Structural Crack</option>
+                        <option value="safety hazard">Safety Hazard</option>
+                        <option value="poor construction">Poor Construction</option>
+                    </optgroup>
+                    <optgroup label="Bid & Contractor Issues">
+                        <option value="bid anomaly">Bid Anomaly / Collusion</option>
+                        <option value="tender discrepancy">Tender Discrepancy</option>
+                        <option value="contractor misconduct">Contractor Misconduct</option>
+                    </optgroup>
                     <option value="other">Other</option>
                 </select>
             </div>
@@ -58,8 +54,8 @@
                     placeholder="Describe what you observed..."></textarea>
             </div>
             <div class="form-group">
-                <label class="form-label">Geo-tagged Photo Proof</label>
-                <input type="file" id="photo" class="form-control" accept="image/*" required>
+                <label class="form-label">Geo-tagged Photo Proof (Optional)</label>
+                <input type="file" id="photo" class="form-control" accept="image/*">
             </div>
 
             <button type="submit" class="btn btn-primary mt-4 w-full" style="width: 100%;">
@@ -104,11 +100,30 @@
             formData.append('tender', document.getElementById('tender').value);
             formData.append('category', document.getElementById('category').value);
             formData.append('description', document.getElementById('description').value);
-            formData.append('photo', document.getElementById('photo').files[0]);
+            if (document.getElementById('photo').files.length > 0) {
+                formData.append('photo', document.getElementById('photo').files[0]);
+            }
 
-            // Mock Location
-            formData.append('location.lat', '20.0');
-            formData.append('location.lng', '78.0');
+            // Mock Location - should ideally use navigator.geolocation
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    formData.append('location.lat', position.coords.latitude);
+                    formData.append('location.lng', position.coords.longitude);
+                    submitData(formData, btn);
+                }, () => {
+                    formData.append('location.lat', '20.0');
+                    formData.append('location.lng', '78.0');
+                    submitData(formData, btn);
+                });
+            } else {
+                formData.append('location.lat', '20.0');
+                formData.append('location.lng', '78.0');
+                submitData(formData, btn);
+            }
+
+        });
+
+        async function submitData(formData, btn) {
 
             try {
                 const res = await api.submitComplaint(formData);
@@ -131,7 +146,7 @@
                 document.getElementById('error-alert').classList.remove('hidden');
                 btn.disabled = false;
             }
-        });
+        }
     </script>
 </body>
 

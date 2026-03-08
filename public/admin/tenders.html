@@ -7,6 +7,7 @@
     <title>Manage Tenders - TenderGuard AI</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <link rel="stylesheet" href="/css/style.css">
 </head>
 
@@ -54,9 +55,20 @@
                             <label class="form-label">Budget (₹)</label>
                             <input type="number" id="budget" class="form-control" required>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Location</label>
-                            <input type="text" id="location" class="form-control" required>
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="form-label flex justify-between items-center">
+                                Location 
+                                <button type="button" id="get-location-btn" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">
+                                    <i class="fa-solid fa-location-crosshairs mr-1"></i> Use Current Location
+                                </button>
+                            </label>
+                            <div class="flex gap-2">
+                                <input type="text" id="location" class="form-control" placeholder="Search or click on map..." required>
+                                <button type="button" id="search-location-btn" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i></button>
+                            </div>
+                            <div id="tender-map" style="height: 300px; width: 100%; border-radius: 8px; margin-top: 10px; z-index: 1;"></div>
+                            <input type="hidden" id="lat">
+                            <input type="hidden" id="lng">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Deadline</label>
@@ -94,12 +106,117 @@
         </main>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="/js/api.js"></script>
     <script>
         checkAuth('admin');
 
+        let map, marker;
+        
+        function initMap() {
+            if (map) return; // Already initialized
+            
+            // Default to central India
+            map = L.map('tender-map').setView([20.5937, 78.9629], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            marker = L.marker([20.5937, 78.9629], {draggable: true}).addTo(map);
+            
+            // Handle marker drag
+            marker.on('dragend', function(event) {
+                var position = marker.getLatLng();
+                updateLocationInfo(position.lat, position.lng);
+            });
+
+            // Handle map click
+            map.on('click', function(e) {
+                marker.setLatLng(e.latlng);
+                updateLocationInfo(e.latlng.lat, e.latlng.lng);
+            });
+            
+            // Fix Leaflet map rendering issues when un-hidden
+            setTimeout(() => { map.invalidateSize(); }, 200);
+        }
+
+        async function updateLocationInfo(lat, lng) {
+            document.getElementById('lat').value = lat;
+            document.getElementById('lng').value = lng;
+            
+            // Reverse Geocoding via Nominatim
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                const data = await response.json();
+                if (data && data.display_name) {
+                    document.getElementById('location').value = data.display_name;
+                }
+            } catch (error) {
+                console.error("Error reverse geocoding:", error);
+            }
+        }
+        
+        // Search by text
+        document.getElementById('search-location-btn').addEventListener('click', async () => {
+            const query = document.getElementById('location').value;
+            if (!query) return;
+            
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    
+                    document.getElementById('lat').value = lat;
+                    document.getElementById('lng').value = lon;
+                    document.getElementById('location').value = data[0].display_name;
+                    
+                    if (map) {
+                        map.setView([lat, lon], 13);
+                        marker.setLatLng([lat, lon]);
+                    }
+                } else {
+                    alert('Location not found. Please try a different search term or click on the map.');
+                }
+            } catch (error) {
+                console.error("Error forward geocoding:", error);
+            }
+        });
+
+        document.getElementById('get-location-btn').addEventListener('click', () => {
+             if (navigator.geolocation) {
+                // visual feedback
+                const btn = document.getElementById('get-location-btn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Locating...';
+                
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        
+                        // Update Map
+                        if (map) {
+                            map.setView([latitude, longitude], 15);
+                            marker.setLatLng([latitude, longitude]);
+                        }
+                        
+                        updateLocationInfo(latitude, longitude);
+                        btn.innerHTML = originalText;
+                    },
+                    (error) => {
+                        alert("Error getting location. Please check your browser permissions.");
+                        btn.innerHTML = originalText;
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        });
+
         document.getElementById('add-tender-btn').addEventListener('click', () => {
             document.getElementById('create-tender-form').classList.remove('hidden');
+            initMap();
         });
         document.getElementById('cancel-create').addEventListener('click', () => {
             document.getElementById('create-tender-form').classList.add('hidden');
@@ -108,10 +225,23 @@
         // Submit new tender
         document.getElementById('new-tender').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            const lat = document.getElementById('lat').value;
+            const lng = document.getElementById('lng').value;
+            
+            if (!lat || !lng) {
+                alert("Please select a specific location on the map or use your current location.");
+                return;
+            }
+
             const data = {
                 title: document.getElementById('title').value,
                 budget: document.getElementById('budget').value,
-                location: { name: document.getElementById('location').value },
+                location: { 
+                    name: document.getElementById('location').value,
+                    lat: parseFloat(lat),
+                    lng: parseFloat(lng)
+                },
                 deadline: document.getElementById('deadline').value,
                 description: document.getElementById('description').value
             };

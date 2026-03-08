@@ -20,7 +20,7 @@ const ComplaintSchema = new mongoose.Schema({
     },
     category: {
         type: String,
-        enum: ['road damage', 'broken railing', 'structural crack', 'safety hazard', 'poor construction', 'other'],
+        enum: ['road damage', 'broken railing', 'structural crack', 'safety hazard', 'poor construction', 'bid anomaly', 'tender discrepancy', 'contractor misconduct', 'other'],
         required: [true, 'Please select an issue category']
     },
     location: {

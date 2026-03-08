@@ -1,83 +1,104 @@
-// Simulate AI Logic
 const { calculateTrustScore } = require('./trustScoring');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-exports.calculateRiskScore = (bid, allBids, contractorInfo, tenderBudget) => {
-    let score = 0; // 0-100, higher is riskier
-    let flags = [];
+// Initialize Gemini API
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // 1. Price deviation from average (if multiple bids exist)
-    if (allBids && allBids.length > 0) {
-        const sumPrice = allBids.reduce((acc, curr) => acc + curr.quotedPrice, 0) + bid.quotedPrice;
-        const avgPrice = sumPrice / (allBids.length + 1);
-
-        // If bid is uncharacteristically low (e.g., >30% below average or budget), flag as high risk
-        const deviation = (avgPrice - bid.quotedPrice) / avgPrice;
-        if (deviation > 0.3) {
-            score += 30;
-            flags.push('Unusually low price deviation (>30%)');
+exports.calculateRiskScore = async (bid, allBids, contractorInfo, tenderBudget) => {
+    try {
+        const prompt = `
+        You are an AI assistant for a tendering platform. Your job is to analyze a submitted bid and assign a risk score from 0 to 100 (where 0 is no risk, 100 is extreme risk).
+        
+        Tender Budget: ${tenderBudget}
+        Contractor Info: ${JSON.stringify(contractorInfo)}
+        Target Bid: ${JSON.stringify(bid)}
+        Other Bids for this Tender: ${JSON.stringify(allBids)}
+        
+        Please return a valid JSON object with the following structure:
+        {
+            "score": <number between 0 and 100>,
+            "flags": ["<string describing a risk factor>", "<another string>"]
         }
+        Do not output any markdown or formatting, just the raw JSON object.
+        `;
+        
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text().replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+        const parsed = JSON.parse(responseText);
+        
+        return {
+            score: Math.min(parsed.score || 0, 100),
+            flags: parsed.flags || []
+        };
+    } catch (error) {
+        console.error("Gemini calculateRiskScore error, falling back to basic logic:", error);
+        let score = 0;
+        let flags = ['AI risk analysis failed, using fallback logic'];
+        if (bid.quotedPrice > tenderBudget) {
+            score += 40;
+            flags.push('Quoted price exceeds tender budget');
+        }
+        return { score, flags };
     }
-
-    // 2. Budget mismatch (e.g. higher than budget)
-    if (bid.quotedPrice > tenderBudget) {
-        score += 40;
-        flags.push('Quoted price exceeds tender budget');
-    }
-
-    // 3. Past delay history
-    if (contractorInfo.delayHistory > 2) {
-        score += 20;
-        flags.push('Contractor has history of delays');
-    }
-
-    return {
-        score: Math.min(score, 100),
-        flags
-    };
 };
 
-exports.detectFakeDocuments = (documents) => {
-    let fakeDocFlags = [];
-    const knownFakeNames = ['dummy_doc.pdf', 'fake_cert.pdf']; // Mock logic
-
-    documents.forEach(doc => {
-        if (knownFakeNames.includes(doc.originalName.toLowerCase())) {
-            fakeDocFlags.push(`Suspicious file name detected: ${doc.originalName}`);
-        }
-
-        // Mock metadata anomaly detection simulation
-        if (Math.random() > 0.95) { // 5% chance to simulate an anomaly just for demo
-            fakeDocFlags.push(`Metadata anomaly detected in ${doc.originalName}`);
-        }
-    });
-
-    return fakeDocFlags;
+exports.detectFakeDocuments = async (documents) => {
+    try {
+        if (!documents || documents.length === 0) return [];
+        
+        const prompt = `
+        You are a document irregularity detection AI. Look at the following list of uploaded document metadata for a tender bid.
+        Identify any suspicious file names (e.g. dummy, fake) or potential metadata anomalies.
+        
+        Documents: ${JSON.stringify(documents)}
+        
+        Return a valid JSON array of strings, where each string is a warning flag about a document. If none are found, return an empty array [].
+        Do not output any markdown or formatting, just the raw JSON array.
+        `;
+        
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text().replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+        const parsed = JSON.parse(responseText);
+        
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        console.error("Gemini detectFakeDocuments error, falling back to empty:", error);
+        return [];
+    }
 };
 
-exports.detectCartel = (bid, allBids) => {
-    let isCartel = false;
-    let flags = [];
-
-    if (allBids && allBids.length > 0) {
-        allBids.forEach(existingBid => {
-            // 1. Bids within 1% difference
-            const diff = Math.abs(existingBid.quotedPrice - bid.quotedPrice) / existingBid.quotedPrice;
-            if (diff > 0 && diff < 0.01) {
-                isCartel = true;
-                flags.push(`Bid price within 1% of another contractor's bid`);
-            }
-
-            // 2. Similar submission timing (Mock logic: submitted within 5 minutes of each other)
-            // In a real scenario we'd check timestamps. Here we just mock if they are created 'recently' compared to each other.
-            const timeDiff = Math.abs(new Date(existingBid.createdAt) - new Date());
-            if (timeDiff < 5 * 60 * 1000) { // 5 mins
-                isCartel = true;
-                flags.push(`Submission timing suspiciously close to another contractor`);
-            }
-        });
+exports.detectCartel = async (bid, allBids) => {
+    try {
+        if (!allBids || allBids.length === 0) return { isCartel: false, cartelFlags: [] };
+        
+        const prompt = `
+        You are a cartel behavior detection AI for a tendering platform. Compare the newly submitted bid against the previous bids.
+        Look for signs of collusion, such as prices suspiciously close (e.g., within 1%) or identical submission patterns.
+        
+        Newly Submitted Bid: ${JSON.stringify(bid)}
+        All Bids on this Tender: ${JSON.stringify(allBids)}
+        
+        Return a valid JSON object with the following structure:
+        {
+            "isCartel": <boolean>,
+            "cartelFlags": ["<string describing suspicious cartel-like behavior>"]
+        }
+        Do not output any markdown or formatting, just the raw JSON object.
+        `;
+        
+        const result = await model.generateContent(prompt);
+        const responseText = result.response.text().replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+        const parsed = JSON.parse(responseText);
+        
+        return {
+            isCartel: parsed.isCartel || false,
+            cartelFlags: parsed.cartelFlags || []
+        };
+    } catch (error) {
+        console.error("Gemini detectCartel error, falling back to false:", error);
+        return { isCartel: false, cartelFlags: [] };
     }
-
-    return { isCartel, cartelFlags: flags };
 };
 
 exports.calculateFinalScore = (bid, tender, contractor) => {

@@ -29,6 +29,15 @@ app.use('/api/bids', require('./routes/bids'));
 app.use('/api/complaints', require('./routes/complaints'));
 app.use('/api/stats', require('./routes/stats'));
 
+// Error Handling Middleware to ensure API always returns JSON
+app.use((err, req, res, next) => {
+    console.error('Unhandled Error:', err);
+    res.status(err.status || 500).json({
+        success: false,
+        error: err.message || 'Server Error'
+    });
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

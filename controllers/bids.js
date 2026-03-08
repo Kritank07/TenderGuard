@@ -41,6 +41,10 @@ exports.createBid = async (req, res) => {
     try {
         req.body.tender = req.params.tenderId;
         req.body.contractor = req.user.id;
+        
+        // Coerce formData fields back to numbers
+        if (req.body.quotedPrice) req.body.quotedPrice = Number(req.body.quotedPrice);
+        if (req.body.timelineDays) req.body.timelineDays = Number(req.body.timelineDays);
 
         const tender = await Tender.findById(req.params.tenderId);
 
@@ -67,10 +71,10 @@ exports.createBid = async (req, res) => {
         const contractor = await User.findById(req.user.id);
         const allBids = await Bid.find({ tender: req.params.tenderId });
 
-        // Simulate AI logic
-        const fakeDocFlags = aiSimulation.detectFakeDocuments(docs);
-        const { isCartel, cartelFlags } = aiSimulation.detectCartel(req.body, allBids);
-        const { score, flags } = aiSimulation.calculateRiskScore(req.body, allBids, contractor, tender.budget);
+        // Run AI logic natively
+        const fakeDocFlags = await aiSimulation.detectFakeDocuments(docs);
+        const { isCartel, cartelFlags } = await aiSimulation.detectCartel(req.body, allBids);
+        const { score, flags } = await aiSimulation.calculateRiskScore(req.body, allBids, contractor, tender.budget);
 
         req.body.fakeDocFlags = fakeDocFlags;
         req.body.cartelSuspicion = isCartel;
@@ -135,12 +139,12 @@ exports.updateBid = async (req, res) => {
             // We need a complete bid object for simulation
             const simulatedBidData = {
                 ...bid.toObject(),
-                quotedPrice: req.body.quotedPrice || bid.quotedPrice,
-                timelineDays: req.body.timelineDays || bid.timelineDays,
+                quotedPrice: req.body.quotedPrice ? Number(req.body.quotedPrice) : bid.quotedPrice,
+                timelineDays: req.body.timelineDays ? Number(req.body.timelineDays) : bid.timelineDays,
             };
 
-            const { isCartel, cartelFlags } = aiSimulation.detectCartel(simulatedBidData, allBids);
-            const { score, flags } = aiSimulation.calculateRiskScore(simulatedBidData, allBids, contractor, tender.budget);
+            const { isCartel, cartelFlags } = await aiSimulation.detectCartel(simulatedBidData, allBids);
+            const { score, flags } = await aiSimulation.calculateRiskScore(simulatedBidData, allBids, contractor, tender.budget);
 
             bid.cartelSuspicion = isCartel;
             bid.riskScore = score;
