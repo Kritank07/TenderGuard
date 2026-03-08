@@ -1,3 +1,0 @@
-[dotenv@17.3.1] injecting env (7) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
-Server running on port 3000
-MongoDB Connected: 127.0.0.1

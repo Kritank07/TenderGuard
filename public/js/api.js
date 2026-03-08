@@ -25,19 +25,7 @@ const initAuth0 = async () => {
                 window.history.replaceState({}, document.title, window.location.pathname);
                 
                 // Sync user with backend
-                const syncResponse = await api.syncUser();
-                
-                if (syncResponse && syncResponse.data) {
-                    const role = syncResponse.data.role;
-                    if (role === 'admin') {
-                        window.location.href = '/admin/dashboard.html';
-                    } else if (role === 'contractor') {
-                        window.location.href = '/contractor/dashboard.html';
-                    } else {
-                        window.location.href = '/public/portal.html';
-                    }
-                    return; // Stop execution during redirect
-                }
+                await api.syncUser();
             } catch (err) {
                 console.error("Error parsing redirect:", err);
             }
@@ -52,9 +40,6 @@ const initAuth0 = async () => {
             if (!localStorage.getItem('user')) {
                 await api.syncUser();
             }
-            
-            // If they are on the homepage index.html AND they are authenticated, maybe redirect them automatically
-            // But let's only do it if they actively clicked login recently or if it's the index page. We'll leave index.html handling to its own script.
         } else {
             localStorage.removeItem('auth0_token');
             localStorage.removeItem('user');
