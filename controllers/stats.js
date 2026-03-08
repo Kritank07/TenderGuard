@@ -94,39 +94,41 @@ exports.getNetworkRiskStats = async (req, res) => {
                     score: riskCalculation.score,
                     riskLevel: riskCalculation.riskLevel,
                     flags: riskCalculation.flags,
-                    color: color
+                    color: color,
+                    type: 'contractor'
                 }
             });
         }
 
-        // Generate edges based on co-participation in tenders
-        const bidsByTender = {};
-        allBids.forEach(bid => {
-            const tId = bid.tender._id ? bid.tender._id.toString() : bid.tender.toString();
-            if (!bidsByTender[tId]) bidsByTender[tId] = [];
-            bidsByTender[tId].push(bid);
-        });
+        // Add Tenders as nodes
+        const allTenders = await Tender.find();
+        for (const t of allTenders) {
+            nodes.push({
+                data: {
+                    id: `tender-${t._id.toString()}`,
+                    label: t.title.substring(0, 15) + (t.title.length > 15 ? '...' : ''),
+                    color: '#4f46e5', // Indigo for Tenders
+                    type: 'tender'
+                }
+            });
+        }
 
-        Object.values(bidsByTender).forEach(tenderBids => {
-            for (let i = 0; i < tenderBids.length; i++) {
-                for (let j = i + 1; j < tenderBids.length; j++) {
-                    const c1 = tenderBids[i].contractor.toString();
-                    const c2 = tenderBids[j].contractor.toString();
-                    if (c1 !== c2) {
-                        const edgeId1 = `${c1}-${c2}`;
-                        const edgeId2 = `${c2}-${c1}`;
-                        if (!edgeTracker.has(edgeId1) && !edgeTracker.has(edgeId2)) {
-                            edges.push({
-                                data: {
-                                    id: edgeId1,
-                                    source: c1,
-                                    target: c2
-                                }
-                            });
-                            edgeTracker.add(edgeId1);
-                            edgeTracker.add(edgeId2);
+        // Generate edges based on bids (Contractor -> Tender)
+        allBids.forEach(bid => {
+            if (bid.contractor && bid.tender) {
+                const cId = bid.contractor._id ? bid.contractor._id.toString() : bid.contractor.toString();
+                const tId = `tender-${bid.tender._id ? bid.tender._id.toString() : bid.tender.toString()}`;
+                
+                const edgeId = `${cId}-${tId}`;
+                if (!edgeTracker.has(edgeId)) {
+                    edges.push({
+                        data: {
+                            id: edgeId,
+                            source: cId,
+                            target: tId
                         }
-                    }
+                    });
+                    edgeTracker.add(edgeId);
                 }
             }
         });

@@ -63,18 +63,21 @@
             <div class="card mb-8">
                 <h3 class="mb-4">Bidding Network Graph</h3>
                 <div id="cy"></div>
-                <div class="mt-4 flex gap-4 text-sm">
+                <div class="mt-4 flex gap-4 text-sm flex-wrap">
                     <div><span
                             style="display:inline-block; width: 12px; height: 12px; border-radius: 50%; background: #dc3545;"></span>
-                        High Risk</div>
+                        Contractor (High Risk)</div>
                     <div><span
                             style="display:inline-block; width: 12px; height: 12px; border-radius: 50%; background: #ffc107;"></span>
-                        Medium Risk</div>
+                        Contractor (Medium Risk)</div>
                     <div><span
                             style="display:inline-block; width: 12px; height: 12px; border-radius: 50%; background: #28a745;"></span>
-                        Low Risk</div>
-                    <div class="text-muted ml-auto"><i class="fa-solid fa-circle-info"></i> Edges represent
-                        co-participation in tenders.</div>
+                        Contractor (Low Risk)</div>
+                    <div><span
+                            style="display:inline-block; width: 14px; height: 14px; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); background: #4f46e5;"></span>
+                        Tender</div>
+                    <div class="text-muted w-full mt-2"><i class="fa-solid fa-circle-info"></i> Edges represent
+                        bids submitted by contractors to specific tenders.</div>
                 </div>
             </div>
 
@@ -131,6 +134,17 @@
                                     'text-outline-color': '#0f172a',
                                     'text-outline-width': 2,
                                     'font-size': '12px'
+                                }
+                            },
+                            {
+                                selector: 'node[type="tender"]',
+                                style: {
+                                    'shape': 'hexagon',
+                                    'width': 40,
+                                    'height': 40,
+                                    'font-size': '14px',
+                                    'font-weight': 'bold',
+                                    'text-outline-color': '#4f46e5'
                                 }
                             },
                             {

@@ -14,9 +14,9 @@
 </head>
 
 <body style="background-color: var(--primary-bg);">
-    <nav class="navbar" style="background-color: rgba(10, 10, 10, 0.8);">
+    <nav class="navbar">
         <div class="container" style="max-width: 100%; padding: 0 2rem;">
-            <a href="/" class="logo" style="color: var(--text-primary);">
+            <a href="/" class="logo">
                 <i class="fa-solid fa-shield-halved"></i> TenderGuard <span
                     style="font-size: 0.875rem; color: var(--text-secondary); font-weight: 500; margin-left: 0.25rem;">Public Dashboard</span>
             </a>
@@ -63,6 +63,8 @@
                     const list = document.getElementById('projects-list');
                     list.innerHTML = '';
 
+                    const bounds = L.latLngBounds();
+                    
                     res.data.forEach((tender, idx) => {
                         // Plot on map if coordinates exist
                         if (tender.location && tender.location.lat && tender.location.lng) {
@@ -72,11 +74,8 @@
                                 Budget: ₹${tender.budget.toLocaleString()}<br>
                                 Status: ${tender.status.toUpperCase()}
                             `);
-
-                            // Auto center on first item for demo
-                            if (idx === 0) {
-                                map.setView([tender.location.lat, tender.location.lng], 6);
-                            }
+                            
+                            bounds.extend([tender.location.lat, tender.location.lng]);
                         }
 
                         // Add to list
@@ -112,6 +111,11 @@
                             </div>
                         `;
                     });
+
+                    // Fit map to show all tender locations
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
                 }
             } catch (err) {
                 console.error(err);
